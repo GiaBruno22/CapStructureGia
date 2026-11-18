@@ -194,7 +194,24 @@
     };
   }
 
-  const api = { parseCSV, num, toLookup, round, expected, stdev, firmTable, cdssEbit, cdssAtDebt, readSchedule, cdssAll, argBest };
+  // Management's stake after the buyback (management doesn't sell).
+  // status: 'ok' | 'all' (no outside shareholders left) | 'sell' (management would have to sell)
+  function mgmtStake(mgmtShare, n, repurchased) {
+    const outside = (1 - mgmtShare) * n;
+    const tol = 1e-9 * n;
+    if (Math.abs(repurchased - outside) <= tol) return { stake: 1, status: 'all' };
+    if (repurchased > outside) return { stake: null, status: 'sell' };
+    return { stake: mgmtShare * n / (n - repurchased), status: 'ok' };
+  }
+
+  // Where the Best price / Highest EPS buttons should move the debt slider.
+  // If both methods agree, go there. If not, go to the case method's amount
+  // and say so. argBest already sends exact ties to the smaller debt.
+  function pickTarget(caseIdx, newIdx) {
+    return { index: caseIdx, agree: caseIdx === newIdx, caseIdx, newIdx };
+  }
+
+  const api = { parseCSV, num, toLookup, round, expected, stdev, firmTable, cdssEbit, cdssAtDebt, readSchedule, cdssAll, argBest, mgmtStake, pickTarget };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CapStruct = api;
 })(typeof self !== 'undefined' ? self : this);

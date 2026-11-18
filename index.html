@@ -19,6 +19,13 @@
     <section id="firms">
       <h2>Question c: Firm U and Firm L</h2>
       <p class="explain">Both firms have the same assets and the same EBIT in each kind of year. Firm L borrows; Firm U doesn't. ROE uses book equity (assets − debt).</p>
+      <div class="lever">
+        <label for="firmL-slider">Firm L's debt: <strong id="firmL-value"></strong></label>
+        <input type="range" id="firmL-slider">
+        <div class="buttons"><button type="button" id="btn-case">Case</button></div>
+        <p class="explain">The interest rate is held at <span id="firmL-rate"></span> at every amount of debt, so the slider shows what debt does to Firm L's return and risk, not how lenders would respond.</p>
+      </div>
+      <div id="firm-compare"></div>
       <div class="firm-grid">
         <div id="firm-u"></div>
         <div id="firm-l"></div>
@@ -28,6 +35,18 @@
     <section id="cdss">
       <h2>Question d: CDSS at each amount of borrowing</h2>
       <p class="explain" id="cdss-facts"></p>
+
+      <div class="lever">
+        <label for="debt-slider">CDSS's debt: <strong id="debt-value"></strong></label>
+        <input type="range" id="debt-slider" step="1">
+        <p class="explain">The slider stops only at the banker's amounts.</p>
+        <div class="buttons">
+          <button type="button" id="btn-best-price">Best price</button>
+          <button type="button" id="btn-best-eps">Highest EPS</button>
+        </div>
+        <div id="pick-note" class="note"></div>
+      </div>
+      <div id="cdss-lever"></div>
 
       <h3>Case method: buy back at today's price (questions d(3), d(4) and d(7))</h3>
       <p class="explain">Shares are repurchased at today's price. WACC uses book weights, as the AGE solution does.</p>

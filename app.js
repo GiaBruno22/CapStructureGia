@@ -59,11 +59,13 @@
   }
 
   // ---------- CDSS ----------
-  function cdssTableHTML(rows, cols, bestIndex) {
+  function cdssTableHTML(rows, cols, bestIndex, currentIndex) {
     const head = '<thead><tr>' + cols.map(c => '<th>' + c.label + '</th>').join('') + '</tr></thead>';
-    const body = rows.map((r, i) =>
-      '<tr' + (i === bestIndex ? ' class="best"' : '') + '>' +
-      cols.map(c => '<td data-label="' + (c.plain || c.label) + '">' + c.get(r) + '</td>').join('') + '</tr>').join('');
+    const body = rows.map((r, i) => {
+      const cls = [i === bestIndex ? 'best' : '', i === currentIndex ? 'current' : ''].filter(Boolean).join(' ');
+      return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
+      cols.map(c => '<td data-label="' + (c.plain || c.label) + '">' + c.get(r) + '</td>').join('') + '</tr>';
+    }).join('');
     return '<table class="stack">' + head + '<tbody>' + body + '</tbody></table>';
   }
 
@@ -82,6 +84,55 @@
       ? 'All four point to the same amount of debt.'
       : 'They don\'t all point to the same amount of debt, so look at each one rather than picking a single answer.');
     return lines.join('<br>') + '<br><span class="explain">Shaded rows have the highest share price for that method.</span>';
+  }
+
+  // ---------- Levers ----------
+  // Firm U next to Firm L at the slider's debt
+  function firmCompareHTML(u, l) {
+    const probs = u.years.map(y => fmt(y.probability, 2));
+    const r = (label, a, b, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + '</td><td>' + a + '</td><td>' + b + '</td></tr>';
+    let h = '<table class="compare"><caption>Firm U next to Firm L at ' + dollars(l.debt) + ' of debt</caption>' +
+      '<thead><tr><th></th><th>Firm U</th><th>Firm L</th></tr></thead><tbody>';
+    u.years.forEach((y, i) => { h += r('ROE, EBIT ' + dollars(y.ebit) + ' (p = ' + probs[i] + ')', pct(y.roe), pct(l.years[i].roe), i === 0 ? '' : ''); });
+    u.years.forEach((y, i) => { h += r('TIE, EBIT ' + dollars(y.ebit) + ' (p = ' + probs[i] + ')', mult(y.tie), mult(l.years[i].tie), i === 0 ? 'sep' : ''); });
+    h += r('E(ROE)', pct(u.eRoe), pct(l.eRoe), 'sep');
+    h += r('σ(ROE)', pct(u.sdRoe), pct(l.sdRoe));
+    h += r('CV of ROE', u.cvRoe === null ? 'n/a' : fmt(u.cvRoe, 2), l.cvRoe === null ? 'n/a' : fmt(l.cvRoe, 2));
+    h += r('E(TIE)', mult(u.eTie), mult(l.eTie), 'sep');
+    h += r('σ(TIE)', mult(u.sdTie), mult(l.sdTie));
+    return h + '</tbody></table>';
+  }
+
+  function stakeText(st) {
+    if (st.status === 'all') return '100.00%*';
+    if (st.status === 'sell') return 'Management would have to sell';
+    return pct(st.stake);
+  }
+
+  // Both buyback methods at the slider's debt
+  function cdssLeverHTML(row, cdss) {
+    const a = row.caseMethod, b = row.newPrice, n = cdss.shares_outstanding, m = cdss.management_share;
+    const sa = C.mgmtStake(m, n, a.repurchased), sb = C.mgmtStake(m, n, b.repurchased);
+    const r = (label, x, y, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + '</td><td>' + x + '</td><td>' + y + '</td></tr>';
+    let h = '<table class="compare"><caption>CDSS with ' + dollars(row.debt) + ' of debt' +
+      (row.rd === null ? '' : ' (r<sub>d</sub> ' + pct(row.rd) + ', ') + (row.rd === null ? ' (' : '') + 'r<sub>s</sub> ' + pct(row.rs) + ')</caption>' +
+      '<thead><tr><th></th><th>Case method: buy back at ' + cents(cdss.share_price) + '</th><th>New-price method</th></tr></thead><tbody>' +
+      r('Share price', cents(a.price), cents(b.price)) +
+      r('Shares repurchased', shares(a.repurchased), shares(b.repurchased)) +
+      r('Shares remaining', shares(a.remaining), shares(b.remaining)) +
+      r('EPS', cents(a.eps), cents(b.eps), 'sep') +
+      r('Dividends per share', cents(a.dps), cents(b.dps)) +
+      r('TIE', mult(row.tie), mult(row.tie)) +
+      r('WACC', pct(a.wacc) + ' (book weights)', pct(b.wacc) + ' (market weights)', 'sep') +
+      r("Management's share of the company", stakeText(sa), stakeText(sb)) +
+      '</tbody></table>';
+    const notes = [];
+    [['case method', sa], ['new-price method', sb]].forEach(([name, st]) => {
+      if (st.status === 'all') notes.push('*Under the ' + name + ', the buyback takes every outside share, so management would own 100% and no outside shareholders would be left.');
+      if (st.status === 'sell') notes.push('<strong>Warning:</strong> under the ' + name + ', the buyback needs more shares than outside investors own, so management would have to sell some of its own.');
+    });
+    if (notes.length) h += '<div class="note">' + notes.join('<br>') + '</div>';
+    return h;
   }
 
   // ---------- Main ----------
@@ -106,9 +157,21 @@
 
       // Firm U and Firm L
       const u = C.firmTable(firms.total_assets, 0, firms.interest_rate, tax, scenarios); u.tax = tax;
-      const l = C.firmTable(firms.total_assets, firms.firm_l_debt, firms.interest_rate, tax, scenarios); l.tax = tax;
       document.getElementById('firm-u').innerHTML = firmTableHTML('Firm U', u);
-      document.getElementById('firm-l').innerHTML = firmTableHTML('Firm L', l);
+      document.getElementById('firmL-rate').textContent = pct(firms.interest_rate);
+
+      const fs = document.getElementById('firmL-slider');
+      fs.min = 0; fs.max = firms.slider_max; fs.step = firms.slider_step; fs.value = firms.firm_l_debt;
+      function drawFirmL() {
+        const debt = Number(fs.value);
+        const l = C.firmTable(firms.total_assets, debt, firms.interest_rate, tax, scenarios); l.tax = tax;
+        document.getElementById('firmL-value').textContent = dollars(debt);
+        document.getElementById('firm-l').innerHTML = firmTableHTML('Firm L', l);
+        document.getElementById('firm-compare').innerHTML = firmCompareHTML(u, l);
+      }
+      fs.addEventListener('input', drawFirmL);
+      document.getElementById('btn-case').addEventListener('click', () => { fs.value = firms.firm_l_debt; drawFirmL(); });
+      drawFirmL();
 
       // CDSS
       const res = C.cdssAll(cdss, tax, schedule);
@@ -123,7 +186,7 @@
         { label: 'r<sub>d</sub>', plain: 'Cost of debt r_d', get: r => pct(r.rd) },
         { label: 'r<sub>s</sub>', plain: 'Cost of equity r_s', get: r => pct(r.rs) }
       ];
-      document.getElementById('cdss-case').innerHTML = cdssTableHTML(res.rows, common.concat([
+      const caseCols = common.concat([
         { label: 'Net income', get: r => dollars(r.netIncome) },
         { label: 'Shares repurchased', get: r => shares(r.caseMethod.repurchased) },
         { label: 'Shares remaining', get: r => shares(r.caseMethod.remaining) },
@@ -131,9 +194,9 @@
         { label: 'TIE', get: r => mult(r.tie) },
         { label: 'Share price', get: r => cents(r.caseMethod.price) },
         { label: 'WACC (book)', get: r => pct(r.caseMethod.wacc) }
-      ]), res.best.priceCase);
+      ]);
 
-      document.getElementById('cdss-new').innerHTML = cdssTableHTML(res.rows, common.concat([
+      const newCols = common.concat([
         { label: 'Value of equity S', get: r => dollars(r.newPrice.equityValue) },
         { label: 'Value of firm V', get: r => dollars(r.newPrice.firmValue) },
         { label: 'Share price', get: r => cents(r.newPrice.price) },
@@ -142,7 +205,32 @@
         { label: 'EPS', get: r => cents(r.newPrice.eps) },
         { label: 'TIE', get: r => mult(r.tie) },
         { label: 'WACC (market)', get: r => pct(r.newPrice.wacc) }
-      ]), res.best.priceNew);
+      ]);
+
+      const ds = document.getElementById('debt-slider');
+      ds.min = 0; ds.max = res.rows.length - 1; ds.step = 1;
+      ds.value = Math.max(0, res.rows.findIndex(r => r.debt === cdss.debt));
+      const pickNote = document.getElementById('pick-note');
+      function drawCdss() {
+        const i = Number(ds.value), row = res.rows[i];
+        document.getElementById('debt-value').textContent = dollars(row.debt);
+        document.getElementById('cdss-lever').innerHTML = cdssLeverHTML(row, cdss);
+        document.getElementById('cdss-case').innerHTML = cdssTableHTML(res.rows, caseCols, res.best.priceCase, i);
+        document.getElementById('cdss-new').innerHTML = cdssTableHTML(res.rows, newCols, res.best.priceNew, i);
+      }
+      function jump(what, caseIdx, newIdx) {
+        const t = C.pickTarget(caseIdx, newIdx);
+        ds.value = t.index;
+        pickNote.innerHTML = t.agree
+          ? what + ': both buyback methods pick ' + dollars(res.rows[t.index].debt) + ' of debt.'
+          : what + ': the case method picks ' + dollars(res.rows[t.caseIdx].debt) + ' and the new-price method picks ' +
+            dollars(res.rows[t.newIdx].debt) + '. The slider is at the case method\'s amount.';
+        drawCdss();
+      }
+      ds.addEventListener('input', () => { pickNote.innerHTML = ''; drawCdss(); });
+      document.getElementById('btn-best-price').addEventListener('click', () => jump('Best price', res.best.priceCase, res.best.priceNew));
+      document.getElementById('btn-best-eps').addEventListener('click', () => jump('Highest EPS', res.best.epsCase, res.best.epsNew));
+      drawCdss();
 
       document.getElementById('cdss-best').innerHTML = bestNote(res);
 
