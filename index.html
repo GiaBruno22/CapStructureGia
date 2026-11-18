@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AGE Capital Structure</title>
+  <meta name="theme-color" content="#1f5f99">
+  <meta name="description" content="FIN 4150 AGE case: CDSS's share price, EPS, TIE and WACC at each amount of borrowing.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Cap Structure">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>AGE Capital Structure</h1>
+    <p class="sub">FIN 4150 · Campus Deli and Sub Shop (CDSS), plus Firm U and Firm L</p>
+  </header>
+
+  <main>
+    <div id="status" class="note">Loading the data files…</div>
+    <div id="warnings"></div>
+
+    <section id="firms">
+      <h2>Question c: Firm U and Firm L</h2>
+      <p class="explain">Both firms have the same assets and the same EBIT in each kind of year. Firm L borrows; Firm U doesn't. ROE uses book equity (assets − debt).</p>
+      <div class="lever">
+        <label for="firmL-slider">Firm L's debt: <strong id="firmL-value"></strong></label>
+        <input type="range" id="firmL-slider">
+        <div class="buttons"><button type="button" id="btn-case">Case</button></div>
+        <p class="explain">The interest rate is held at <span id="firmL-rate"></span> at every amount of debt, so the slider shows what debt does to Firm L's return and risk, not how lenders would respond.</p>
+      </div>
+      <div id="firm-compare"></div>
+      <div class="firm-grid">
+        <div id="firm-u"></div>
+        <div id="firm-l"></div>
+      </div>
+    </section>
+
+    <section id="cdss">
+      <h2>Question d: CDSS at each amount of borrowing</h2>
+      <p class="explain" id="cdss-facts"></p>
+
+      <div class="lever">
+        <label for="debt-slider">CDSS's debt: <strong id="debt-value"></strong></label>
+        <input type="range" id="debt-slider" step="1">
+        <p class="explain">The slider stops only at the banker's amounts.</p>
+        <div class="buttons">
+          <button type="button" id="btn-best-price">Best price</button>
+          <button type="button" id="btn-best-eps">Highest EPS</button>
+        </div>
+        <div id="pick-note" class="note"></div>
+      </div>
+      <div id="cdss-lever"></div>
+
+      <h3>Case method: buy back at today's price (questions d(3), d(4) and d(7))</h3>
+      <p class="explain">Shares are repurchased at today's price. WACC uses book weights, as the AGE solution does.</p>
+      <div id="cdss-case"></div>
+
+      <h3>New-price method: buy back at the price after the announcement</h3>
+      <p class="explain">The value of the firm is the value of the equity (net income / r<sub>s</sub>) plus the debt, and shares are repurchased at that new price. WACC uses market weights.</p>
+      <div id="cdss-new"></div>
+
+      <div id="cdss-best" class="note"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Every number on this page is read from the files in <code>data/</code> and worked out in your browser. Nothing is sent anywhere.</p>
+  </footer>
+
+  <script src="capstruct.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
